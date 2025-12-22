@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT Voice Master</title>
+    <title>ESP32 IoT Auto-Kick</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* CSS CHUẨN GIỮ NGUYÊN */
+        /* GIỮ NGUYÊN CSS CŨ */
         :root { --bg-color: #1e1e2e; --panel-color: #2b2b3b; --text-color: #ffffff; --accent-color: #00bcd4; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
         
@@ -17,6 +17,15 @@
         .login-input { width: 100%; padding: 12px; margin: 10px 0; background: #3a3a4a; border: 1px solid #555; border-radius: 8px; color: white; box-sizing: border-box; }
         .login-btn { width: 100%; padding: 12px; background: var(--accent-color); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
         
+        /* MÀN HÌNH BỊ ĐÁ (KICKED) */
+        #kicked-screen { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.95); z-index: 2000; 
+            justify-content: center; align-items: center; flex-direction: column; text-align: center;
+        }
+        .busy-icon { font-size: 60px; color: #ff4444; margin-bottom: 20px; animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
         #dashboard-screen { display: none; }
         .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; position: relative;}
         h2 { margin-top: 0; color: var(--accent-color); }
@@ -24,7 +33,6 @@
         .status.connected { color: #00ff88; }
         .status.disconnected { color: #ff4444; }
 
-        /* VOICE BUTTON */
         .voice-container { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #444; }
         .voice-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #333; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s; }
         .voice-btn:hover { background: var(--accent-color); transform: scale(1.1); }
@@ -39,27 +47,21 @@
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #00ff88; }
         input:checked + .slider:before { transform: translateX(24px); }
-        
         #controls-area { transition: opacity 0.3s; }
         .disabled-ui { opacity: 0.3; pointer-events: none; }
         .slider-container { margin: 15px 0; }
         input[type=range] { width: 100%; cursor: pointer; }
         .label-text { font-size: 14px; margin-bottom: 5px; display: block; text-align: left; color: #ccc;}
-        
-        /* COLOR PICKER FULL */
         .current-color-section { background: #333; padding: 10px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
         .color-picker-wrapper { width: 100px; height: 40px; border-radius: 8px; overflow: hidden; border: 2px solid #555; position: relative; }
         input[type="color"] { -webkit-appearance: none; appearance: none; border: none; padding: 0; margin: 0; background: none; cursor: pointer; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 150%; height: 150%; }
-        
         .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .color-btn { width: 100%; height: 40px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         .color-btn.active { border: 2px solid white; transform: scale(1.1); }
-        
         .effect-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .effect-btn { background: #444; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
         .effect-btn:hover { background: var(--accent-color); }
         .effect-btn.active { background: var(--accent-color); font-weight: bold; box-shadow: 0 0 10px var(--accent-color); }
-
         .music-player-container { background: #333; padding: 15px; border-radius: 12px; margin-top: 20px; text-align: center; opacity: 0.5; pointer-events: none; transition: 0.3s; }
         .music-player-container.enabled { opacity: 1; pointer-events: all; }
         .custom-file-upload { border: 1px dashed var(--accent-color); display: block; padding: 10px; cursor: pointer; border-radius: 8px; color: var(--accent-color); margin-bottom: 10px; font-size: 13px; }
@@ -80,11 +82,18 @@
         </div>
     </div>
 
+    <div id="kicked-screen">
+        <i class="fas fa-sign-out-alt busy-icon"></i>
+        <h2 style="color: #ff4444;">ĐÃ MẤT QUYỀN!</h2>
+        <p style="color: #ccc; margin-bottom: 20px;">Tài khoản này vừa đăng nhập ở nơi khác.</p>
+        <button class="login-btn" style="width: 180px; background: #00bcd4;" onclick="location.reload()">Đăng nhập lại</button>
+    </div>
+
     <div id="dashboard-screen">
         <div class="dashboard">
             <h2><i class="fas fa-wifi"></i> IoT Controller</h2>
             <div id="connection-status" class="status disconnected">Đang xác thực...</div>
-            <button onclick="location.reload()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #666; cursor: pointer;"><i class="fas fa-sign-out-alt"></i></button>
+            <button onclick="handleLogout()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #666; cursor: pointer;"><i class="fas fa-sign-out-alt"></i></button>
 
             <div class="voice-container">
                 <button id="btn-voice" class="voice-btn" onclick="toggleVoice()">
@@ -150,115 +159,127 @@
     <script>
         const host = "53beae9b0e4b41f3b1b2dc76a5b641eb.s1.eu.hivemq.cloud"; 
         const port = 8884; 
-        const topic = "esp32/led/control";
+        const topicControl = "esp32/led/control";
+        const topicLock = "esp32/system/lock";
         
         let client = null;
-        let audioContext, analyser, source, dataArray;
-        let isAnalyzing = false;
-        let lastBeatTime = 0;
-
-        let state = { power: "OFF", mode: "static", brightness: 100, color: { r: 255, g: 0, b: 0 } };
-
-        // --- GIỌNG NÓI ---
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null;
+        let sessionID = "sess_" + Math.random().toString(36).substr(2, 9);
         
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'vi-VN';
-            recognition.continuous = false;
-            
-            recognition.onstart = function() {
-                document.getElementById("btn-voice").classList.add("listening");
-                document.getElementById("voice-text").innerText = "Đang nghe... 👂";
-            };
-            
-            recognition.onend = function() {
-                document.getElementById("btn-voice").classList.remove("listening");
-                setTimeout(() => {
-                    if(!document.getElementById("btn-voice").classList.contains("listening"))
-                        document.getElementById("voice-text").innerText = "Bấm để nói...";
-                }, 3000);
-            };
+        // ⭐ BIẾN QUAN TRỌNG: CỜ XÁC NHẬN CHỦ QUYỀN
+        let isSecure = false; 
 
-            recognition.onresult = function(event) {
-                const text = event.results[0][0].transcript.toLowerCase();
-                document.getElementById("voice-text").innerText = 'Đã nghe: "' + text + '"';
-                processVoiceCommand(text);
-            };
-        } else {
-            document.getElementById("voice-text").innerText = "Trình duyệt không hỗ trợ 😢";
-        }
-
-        function toggleVoice() {
-            if (!recognition) return alert("Trình duyệt không hỗ trợ!");
-            recognition.start();
-        }
-
-        function processVoiceCommand(text) {
-            // 1. Lệnh Nguồn
-            if (text.includes("bật")) {
-                document.getElementById("powerSwitch").checked = true;
-                togglePower();
-            } else if (text.includes("tắt") && !text.includes("nhạc")) { // Tránh nhầm với "tắt nhạc"
-                document.getElementById("powerSwitch").checked = false;
-                togglePower();
-            }
-
-            if (state.power === "OFF") return;
-
-            // 2. Lệnh Điều khiển Nhạc (MỚI)
-            let audioPlayer = document.getElementById("audioPlayer");
-            if (text.includes("dừng nhạc") || text.includes("tắt nhạc") || text.includes("ngưng")) {
-                if(audioPlayer) audioPlayer.pause();
-            } 
-            else if (text.includes("tiếp tục") || text.includes("chơi nhạc") || text.includes("phát nhạc")) {
-                if(audioPlayer && state.mode === 'music') audioPlayer.play();
-                else if (state.mode !== 'music') alert("Hãy chuyển sang chế độ Music trước!");
-            }
-
-            // 3. Lệnh Hiệu ứng
-            if (text.includes("chế độ nhạc") || text.includes("quẩy")) selectEffect('music');
-            else if (text.includes("cầu vồng")) selectEffect('rainbow');
-            else if (text.includes("đuổi") || text.includes("chạy")) selectEffect('chase');
-            else if (text.includes("thở") || text.includes("hô hấp")) selectEffect('breath');
-            
-            // 4. Lệnh Màu sắc (Đã map đúng ID nút)
-            else if (text.includes("đỏ")) selectColor(255, 0, 0, document.getElementById('btn-col-red'));
-            else if (text.includes("cam")) selectColor(255, 127, 0, document.getElementById('btn-col-orange'));
-            else if (text.includes("vàng")) selectColor(255, 255, 0, document.getElementById('btn-col-yellow'));
-            else if (text.includes("xanh lá") || text.includes("lục")) selectColor(0, 255, 0, document.getElementById('btn-col-green'));
-            else if (text.includes("xanh lơ") || text.includes("ngọc") || text.includes("da trời")) selectColor(0, 255, 255, document.getElementById('btn-col-cyan'));
-            else if (text.includes("xanh dương") || text.includes("biển") || text.includes("lam")) selectColor(0, 0, 255, document.getElementById('btn-col-blue'));
-            else if (text.includes("tím")) selectColor(139, 0, 255, document.getElementById('btn-col-purple'));
-            else if (text.includes("trắng")) selectColor(255, 255, 255, document.getElementById('btn-col-white'));
-        }
-
-        // --- CORE FUNCTIONS ---
+        // --- 1. LOGIC KẾT NỐI (NGƯỜI SAU ĐÁ NGƯỜI TRƯỚC) ---
         function startConnection() {
             let u = document.getElementById("mqttUser").value;
             let p = document.getElementById("mqttPass").value;
             if(!u || !p) return alert("Nhập đủ thông tin!");
+            
             document.getElementById("login-msg").innerText = "Đang kết nối...";
             document.getElementById("login-msg").style.color = "yellow";
-            const clientID = "web_" + Math.random().toString(16).substr(2, 8);
+            
+            const clientID = "web_" + sessionID;
             client = new Paho.MQTT.Client(host, port, clientID);
-            client.connect({ onSuccess: onConnect, onFailure: onFail, useSSL: true, userName: u, password: p });
+
+            let lastWill = new Paho.MQTT.Message("FREE");
+            lastWill.destinationName = topicLock;
+            lastWill.retained = true; 
+
+            client.connect({ 
+                onSuccess: onConnect, 
+                onFailure: onFail, 
+                useSSL: true, 
+                userName: u, 
+                password: p,
+                willMessage: lastWill 
+            });
+            client.onMessageArrived = onMessageArrived;
         }
 
         function onConnect() {
+            console.log("Connected! Claiming lock...");
+            
+            // 1. Đăng ký nghe tin (để biết nếu sau này có ai đá mình)
+            client.subscribe(topicLock);
+            
+            // 2. GỬI LỆNH CHIẾM QUYỀN NGAY (Ghi đè người cũ)
+            // Retained = true để lưu lại trên server
+            let msg = new Paho.MQTT.Message("LOCKED:" + sessionID);
+            msg.destinationName = topicLock;
+            msg.retained = true; 
+            client.send(msg);
+        }
+
+        function onMessageArrived(message) {
+            // Xử lý logic tranh chấp
+            if (message.destinationName === topicLock) {
+                let payload = message.payloadString;
+                console.log("Lock Update:", payload);
+
+                if (payload.startsWith("LOCKED:")) {
+                    let ownerID = payload.split(":")[1];
+                    
+                    if (ownerID === sessionID) {
+                        // A. Tin nhắn của chính mình (server gửi về)
+                        // -> Xác nhận đã chiếm quyền thành công
+                        isSecure = true; 
+                        showDashboard();
+                    } 
+                    else {
+                        // B. Tin nhắn của người khác
+                        if (isSecure) {
+                            // Mình đang dùng (isSecure=true) mà thấy ID lạ -> BỊ ĐÁ!
+                            console.warn("Bị đá bởi thiết bị khác!");
+                            showKickedScreen();
+                            client.disconnect(); // Ngắt mạng ngay
+                        } else {
+                            // Mình vừa mới vào (isSecure=false) mà thấy ID lạ
+                            // -> Đây là tin nhắn cũ của người trước -> KỆ NÓ.
+                            // Mình đã gửi lệnh LOCKED của mình rồi, chờ tin của mình về thôi.
+                            console.log("Thấy ID cũ, bỏ qua chờ chiếm quyền...");
+                        }
+                    }
+                }
+            }
+        }
+
+        function showKickedScreen() {
             document.getElementById("login-screen").style.display = "none";
+            document.getElementById("dashboard-screen").style.display = "none";
+            document.getElementById("kicked-screen").style.display = "flex";
+        }
+
+        function showDashboard() {
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("kicked-screen").style.display = "none";
             document.getElementById("dashboard-screen").style.display = "flex";
-            document.getElementById("connection-status").innerText = "● Đã kết nối HiveMQ Cloud";
+            document.getElementById("connection-status").innerText = "● Đã kết nối & Nắm quyền";
             document.getElementById("connection-status").className = "status connected";
         }
+
+        function handleLogout() {
+            if (client && client.isConnected()) {
+                let msg = new Paho.MQTT.Message("FREE");
+                msg.destinationName = topicLock;
+                msg.retained = true;
+                client.send(msg);
+                client.disconnect();
+            }
+            location.reload();
+        }
+
+        // --- CÁC HÀM CŨ GIỮ NGUYÊN BÊN DƯỚI (Voice, Color, Music...) ---
+        let audioContext, analyser, source, dataArray;
+        let isAnalyzing = false;
+        let lastBeatTime = 0;
+        let state = { power: "OFF", mode: "static", brightness: 100, color: { r: 255, g: 0, b: 0 } };
+
         function onFail(e) { console.log(e); document.getElementById("login-msg").innerText = "Lỗi kết nối!"; }
 
         function sendCommand(extraData = {}) {
             if (!client || !client.isConnected()) return;
             let payload = JSON.stringify({ ...state, ...extraData });
             let message = new Paho.MQTT.Message(payload);
-            message.destinationName = topic;
+            message.destinationName = topicControl;
             client.send(message);
         }
 
@@ -286,9 +307,8 @@
             if (activeBtn) activeBtn.classList.add('active');
 
             let musicContainer = document.getElementById("musicContainer");
-            if (state.mode === 'music') {
-                musicContainer.classList.add("enabled");
-            } else {
+            if (state.mode === 'music') musicContainer.classList.add("enabled");
+            else {
                 musicContainer.classList.remove("enabled");
                 document.getElementById('audioPlayer').pause();
             }
@@ -297,11 +317,8 @@
         function selectColor(r, g, b, btnElement) {
             state.color = { r: r, g: g, b: b };
             document.getElementById("customColorPicker").value = rgbToHex(r, g, b);
-            
             if (state.mode === "rainbow") state.mode = "static";
             updateUIState();
-            
-            // Xóa active cũ và thêm active mới
             if (btnElement) {
                 document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 btnElement.classList.add('active');
@@ -320,21 +337,79 @@
         function selectEffect(effectName) {
             state.mode = effectName;
             document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-
             if (effectName === 'chase') {
                 state.color = { r: 255, g: 0, b: 0 }; 
                 document.getElementById("customColorPicker").value = "#ff0000";
-                document.getElementById('btn-col-red').classList.add('active'); // Tự bấm nút Đỏ
+                document.getElementById('btn-col-red').classList.add('active');
             } else if (effectName === 'breath') {
                 state.color = { r: 0, g: 0, b: 255 }; 
                 document.getElementById("customColorPicker").value = "#0000ff";
-                document.getElementById('btn-col-blue').classList.add('active'); // Tự bấm nút Xanh
+                document.getElementById('btn-col-blue').classList.add('active');
             }
             updateUIState();
             sendCommand();
         }
 
-        // --- MUSIC LOGIC ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'vi-VN';
+            recognition.continuous = false;
+            recognition.onstart = function() {
+                document.getElementById("btn-voice").classList.add("listening");
+                document.getElementById("voice-text").innerText = "Đang nghe... 👂";
+            };
+            recognition.onend = function() {
+                document.getElementById("btn-voice").classList.remove("listening");
+                setTimeout(() => {
+                    if(!document.getElementById("btn-voice").classList.contains("listening"))
+                        document.getElementById("voice-text").innerText = "Bấm để nói...";
+                }, 3000);
+            };
+            recognition.onresult = function(event) {
+                const text = event.results[0][0].transcript.toLowerCase();
+                document.getElementById("voice-text").innerText = 'Đã nghe: "' + text + '"';
+                processVoiceCommand(text);
+            };
+        } else document.getElementById("voice-text").innerText = "Trình duyệt không hỗ trợ";
+
+        function toggleVoice() {
+            if (!recognition) return alert("Trình duyệt không hỗ trợ!");
+            recognition.start();
+        }
+
+        function processVoiceCommand(text) {
+            if (text.includes("bật")) {
+                document.getElementById("powerSwitch").checked = true; togglePower();
+            } else if (text.includes("tắt") && !text.includes("nhạc")) {
+                document.getElementById("powerSwitch").checked = false; togglePower();
+            }
+            if (state.power === "OFF") return;
+
+            let audioPlayer = document.getElementById("audioPlayer");
+            if (text.includes("dừng nhạc") || text.includes("tắt nhạc")) {
+                if(audioPlayer) audioPlayer.pause();
+            } else if (text.includes("tiếp tục") || text.includes("chơi nhạc")) {
+                if(audioPlayer && state.mode === 'music') audioPlayer.play();
+                else if (state.mode !== 'music') alert("Hãy chuyển sang chế độ Music trước!");
+            }
+
+            if (text.includes("chế độ nhạc") || text.includes("quẩy")) selectEffect('music');
+            else if (text.includes("cầu vồng")) selectEffect('rainbow');
+            else if (text.includes("đuổi") || text.includes("chạy")) selectEffect('chase');
+            else if (text.includes("thở")) selectEffect('breath');
+            
+            else if (text.includes("đỏ")) selectColor(255, 0, 0, document.getElementById('btn-col-red'));
+            else if (text.includes("cam")) selectColor(255, 127, 0, document.getElementById('btn-col-orange'));
+            else if (text.includes("vàng")) selectColor(255, 255, 0, document.getElementById('btn-col-yellow'));
+            else if (text.includes("xanh lá") || text.includes("lục")) selectColor(0, 255, 0, document.getElementById('btn-col-green'));
+            else if (text.includes("xanh lơ") || text.includes("ngọc")) selectColor(0, 255, 255, document.getElementById('btn-col-cyan'));
+            else if (text.includes("xanh dương") || text.includes("biển")) selectColor(0, 0, 255, document.getElementById('btn-col-blue'));
+            else if (text.includes("tím")) selectColor(139, 0, 255, document.getElementById('btn-col-purple'));
+            else if (text.includes("trắng")) selectColor(255, 255, 255, document.getElementById('btn-col-white'));
+        }
+
         function handleFileUpload(input) {
             let file = input.files[0];
             if (file) {
@@ -345,7 +420,6 @@
                 if (!audioContext) initAudioContext();
             }
         }
-
         function initAudioContext() {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             let player = document.getElementById("audioPlayer");
@@ -356,29 +430,24 @@
             analyser.fftSize = 256;
             dataArray = new Uint8Array(analyser.frequencyBinCount);
         }
-
         function startMusicAnalysis() {
             if (!audioContext) initAudioContext();
             audioContext.resume();
             isAnalyzing = true;
             analyzeLoop();
         }
-
         function pauseMusicAnalysis() {
             isAnalyzing = false;
             document.getElementById("musicContainer").classList.remove("music-active");
         }
-
         function analyzeLoop() {
             if (!isAnalyzing) return;
             requestAnimationFrame(analyzeLoop);
             if (state.mode !== 'music') return;
-
             analyser.getByteFrequencyData(dataArray);
             let bassSum = 0;
             for (let i = 0; i < 10; i++) bassSum += dataArray[i];
             let bassAvg = bassSum / 10;
-
             if (bassAvg > 210) { 
                 let now = Date.now();
                 if (now - lastBeatTime > 100) { 
@@ -390,7 +459,6 @@
                 }
             }
         }
-
         function rgbToHex(r, g, b) {
             return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
         }
