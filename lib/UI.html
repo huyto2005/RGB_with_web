@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT Pro Controller</title>
+    <title>ESP32 IoT Music Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* CSS giữ nguyên như cũ */
         :root { --bg-color: #1e1e2e; --panel-color: #2b2b3b; --text-color: #ffffff; --accent-color: #00bcd4; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
+        
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); z-index: 1000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background-color: var(--panel-color); padding: 40px; border-radius: 20px; width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
         .login-input { width: 100%; padding: 12px; margin: 10px 0; background: #3a3a4a; border: 1px solid #555; border-radius: 8px; color: white; box-sizing: border-box; }
         .login-btn { width: 100%; padding: 12px; background: var(--accent-color); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
         #dashboard-screen { display: none; }
         .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
         h2 { margin-top: 0; color: var(--accent-color); }
         .status { font-size: 12px; margin-bottom: 20px; color: #888; }
         .status.connected { color: #00ff88; }
         .status.disconnected { color: #ff4444; }
+
         .power-container { display: flex; justify-content: space-between; align-items: center; background: #3a3a4a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -28,21 +30,52 @@
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #00ff88; }
         input:checked + .slider:before { transform: translateX(24px); }
+        
         #controls-area { transition: opacity 0.3s; }
         .disabled-ui { opacity: 0.3; pointer-events: none; }
         .slider-container { margin: 15px 0; }
         input[type=range] { width: 100%; cursor: pointer; }
         .label-text { font-size: 14px; margin-bottom: 5px; display: block; text-align: left; color: #ccc;}
+        
+        /* --- SỬA LỖI Ô MÀU KHÔNG FULL --- */
         .current-color-section { background: #333; padding: 10px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
-        .color-picker-wrapper { width: 100px; height: 40px; border-radius: 8px; overflow: hidden; border: 2px solid #555; display: flex; align-items: center; justify-content: center; }
-        input[type="color"] { -webkit-appearance: none; appearance: none; border: none; width: 200%; height: 200%; cursor: pointer; padding: 0; background: none; margin: 0; }
+        
+        .color-picker-wrapper { 
+            width: 100px; 
+            height: 40px; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            border: 2px solid #555; 
+            position: relative; /* Để định vị input tuyệt đối bên trong */
+        }
+        
+        input[type="color"] { 
+            -webkit-appearance: none; 
+            appearance: none; 
+            border: none; 
+            padding: 0; 
+            margin: 0;
+            background: none; 
+            cursor: pointer;
+            
+            /* Kỹ thuật phóng to và căn giữa tuyệt đối để tràn viền */
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150%; 
+            height: 150%; 
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
         .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .color-btn { width: 100%; height: 40px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         .color-btn.active { border: 2px solid white; transform: scale(1.1); }
+        
         .effect-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .effect-btn { background: #444; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
-        .effect-btn:hover { background: var(--accent-color); }
         .effect-btn.active { background: var(--accent-color); font-weight: bold; box-shadow: 0 0 10px var(--accent-color); }
+
         .music-player-container { background: #333; padding: 15px; border-radius: 12px; margin-top: 20px; text-align: center; opacity: 0.5; pointer-events: none; transition: 0.3s; }
         .music-player-container.enabled { opacity: 1; pointer-events: all; }
         .custom-file-upload { border: 1px dashed var(--accent-color); display: block; padding: 10px; cursor: pointer; border-radius: 8px; color: var(--accent-color); margin-bottom: 10px; font-size: 13px; }
@@ -52,6 +85,7 @@
     </style>
 </head>
 <body>
+
     <div id="login-screen">
         <div class="login-box">
             <h2 style="margin-bottom: 20px;">🔐 Đăng Nhập IoT</h2>
@@ -92,12 +126,12 @@
 
                 <span class="label-text">Màu có sẵn:</span>
                 <div class="color-grid">
-                    <button class="color-btn" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
+                    <button class="color-btn" id="btn-color-red" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
                     <button class="color-btn" style="background: #ff7f00" onclick="selectColor(255, 127, 0, this)"></button>
                     <button class="color-btn" style="background: #ffff00" onclick="selectColor(255, 255, 0, this)"></button>
                     <button class="color-btn" style="background: #00ff00" onclick="selectColor(0, 255, 0, this)"></button>
                     <button class="color-btn" style="background: #00ffff" onclick="selectColor(0, 255, 255, this)"></button>
-                    <button class="color-btn" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
+                    <button class="color-btn" id="btn-color-blue" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
                     <button class="color-btn" style="background: #8b00ff" onclick="selectColor(139, 0, 255, this)"></button>
                     <button class="color-btn" style="background: #ffffff" onclick="selectColor(255, 255, 255, this)"></button>
                 </div>
@@ -179,22 +213,20 @@
             sendCommand();
         }
 
-        // --- HÀM CẬP NHẬT UI TRẠNG THÁI NÚT ---
         function updateUIState() {
             // Xóa hết active của nút hiệu ứng
             document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
-            
-            // Highlight nút tương ứng với mode hiện tại
+            // Highlight nút mode hiện tại
             let activeBtn = document.getElementById('btn-' + state.mode);
             if (activeBtn) activeBtn.classList.add('active');
 
-            // Xử lý ẩn/hiện khung Music
+            // Xử lý khung Music
             let musicContainer = document.getElementById("musicContainer");
             if (state.mode === 'music') {
                 musicContainer.classList.add("enabled");
             } else {
                 musicContainer.classList.remove("enabled");
-                document.getElementById('audioPlayer').pause(); // Tắt nhạc nếu thoát mode
+                document.getElementById('audioPlayer').pause();
             }
         }
 
@@ -202,15 +234,12 @@
             state.color = { r: r, g: g, b: b };
             document.getElementById("customColorPicker").value = rgbToHex(r, g, b);
             
-            // Chỉ khi đang Rainbow thì mới bắt buộc về Static (vì Rainbow không nhận màu)
             if (state.mode === "rainbow") {
                 state.mode = "static";
             }
-            // Các mode khác (Chase, Breath, Music) giữ nguyên để đổi màu nền!
             
-            updateUIState(); // Cập nhật lại nút (để đảm bảo nút Chase/Breath vẫn sáng)
+            updateUIState();
             
-            // Highlight nút màu vừa chọn
             if (btnElement) {
                 document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 btnElement.classList.add('active');
@@ -229,15 +258,26 @@
         function selectEffect(effectName) {
             state.mode = effectName;
             
-            // Gợi ý màu khi chọn hiệu ứng
-            if (effectName === 'chase') document.getElementById("customColorPicker").value = "#ff0000";
-            if (effectName === 'breath') document.getElementById("customColorPicker").value = "#0000ff";
+            // Xóa active của tất cả nút màu trước (để chuẩn bị highlight cái mới)
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+
+            if (effectName === 'chase') {
+                state.color = { r: 255, g: 0, b: 0 }; 
+                document.getElementById("customColorPicker").value = "#ff0000";
+                // Tự động highlight nút Đỏ
+                document.getElementById('btn-color-red').classList.add('active');
+            } 
+            else if (effectName === 'breath') {
+                state.color = { r: 0, g: 0, b: 255 }; 
+                document.getElementById("customColorPicker").value = "#0000ff";
+                // Tự động highlight nút Xanh dương
+                document.getElementById('btn-color-blue').classList.add('active');
+            }
 
             updateUIState();
             sendCommand();
         }
 
-        // --- MUSIC LOGIC ---
         function handleFileUpload(input) {
             let file = input.files[0];
             if (file) {
@@ -302,5 +342,4 @@
     </script>
 </body>
 </html>
-
 
