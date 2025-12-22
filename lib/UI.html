@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT Music Pro</title>
+    <title>ESP32 IoT Voice Master</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
+        /* CSS CHUẨN GIỮ NGUYÊN */
         :root { --bg-color: #1e1e2e; --panel-color: #2b2b3b; --text-color: #ffffff; --accent-color: #00bcd4; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
         
@@ -17,11 +18,19 @@
         .login-btn { width: 100%; padding: 12px; background: var(--accent-color); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
         
         #dashboard-screen { display: none; }
-        .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+        .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; position: relative;}
         h2 { margin-top: 0; color: var(--accent-color); }
         .status { font-size: 12px; margin-bottom: 20px; color: #888; }
         .status.connected { color: #00ff88; }
         .status.disconnected { color: #ff4444; }
+
+        /* VOICE BUTTON */
+        .voice-container { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        .voice-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #333; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s; }
+        .voice-btn:hover { background: var(--accent-color); transform: scale(1.1); }
+        .voice-btn.listening { background: #ff4444; animation: pulse-voice 1.5s infinite; }
+        @keyframes pulse-voice { 0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); } }
+        #voice-text { display: block; margin-top: 10px; font-size: 14px; color: var(--accent-color); font-style: italic; height: 20px; }
 
         .power-container { display: flex; justify-content: space-between; align-items: center; background: #3a3a4a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
@@ -37,43 +46,18 @@
         input[type=range] { width: 100%; cursor: pointer; }
         .label-text { font-size: 14px; margin-bottom: 5px; display: block; text-align: left; color: #ccc;}
         
-        /* --- SỬA LỖI Ô MÀU KHÔNG FULL --- */
+        /* COLOR PICKER FULL */
         .current-color-section { background: #333; padding: 10px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+        .color-picker-wrapper { width: 100px; height: 40px; border-radius: 8px; overflow: hidden; border: 2px solid #555; position: relative; }
+        input[type="color"] { -webkit-appearance: none; appearance: none; border: none; padding: 0; margin: 0; background: none; cursor: pointer; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 150%; height: 150%; }
         
-        .color-picker-wrapper { 
-            width: 100px; 
-            height: 40px; 
-            border-radius: 8px; 
-            overflow: hidden; 
-            border: 2px solid #555; 
-            position: relative; /* Để định vị input tuyệt đối bên trong */
-        }
-        
-        input[type="color"] { 
-            -webkit-appearance: none; 
-            appearance: none; 
-            border: none; 
-            padding: 0; 
-            margin: 0;
-            background: none; 
-            cursor: pointer;
-            
-            /* Kỹ thuật phóng to và căn giữa tuyệt đối để tràn viền */
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 150%; 
-            height: 150%; 
-        }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: none; }
-
         .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .color-btn { width: 100%; height: 40px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         .color-btn.active { border: 2px solid white; transform: scale(1.1); }
         
         .effect-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
         .effect-btn { background: #444; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .effect-btn:hover { background: var(--accent-color); }
         .effect-btn.active { background: var(--accent-color); font-weight: bold; box-shadow: 0 0 10px var(--accent-color); }
 
         .music-player-container { background: #333; padding: 15px; border-radius: 12px; margin-top: 20px; text-align: center; opacity: 0.5; pointer-events: none; transition: 0.3s; }
@@ -102,6 +86,13 @@
             <div id="connection-status" class="status disconnected">Đang xác thực...</div>
             <button onclick="location.reload()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #666; cursor: pointer;"><i class="fas fa-sign-out-alt"></i></button>
 
+            <div class="voice-container">
+                <button id="btn-voice" class="voice-btn" onclick="toggleVoice()">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <span id="voice-text">Bấm để nói...</span>
+            </div>
+
             <div class="power-container">
                 <span><strong>Nguồn Tổng</strong></span>
                 <label class="switch">
@@ -126,14 +117,14 @@
 
                 <span class="label-text">Màu có sẵn:</span>
                 <div class="color-grid">
-                    <button class="color-btn" id="btn-color-red" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
-                    <button class="color-btn" style="background: #ff7f00" onclick="selectColor(255, 127, 0, this)"></button>
-                    <button class="color-btn" style="background: #ffff00" onclick="selectColor(255, 255, 0, this)"></button>
-                    <button class="color-btn" style="background: #00ff00" onclick="selectColor(0, 255, 0, this)"></button>
-                    <button class="color-btn" style="background: #00ffff" onclick="selectColor(0, 255, 255, this)"></button>
-                    <button class="color-btn" id="btn-color-blue" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
-                    <button class="color-btn" style="background: #8b00ff" onclick="selectColor(139, 0, 255, this)"></button>
-                    <button class="color-btn" style="background: #ffffff" onclick="selectColor(255, 255, 255, this)"></button>
+                    <button class="color-btn" id="btn-col-red" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
+                    <button class="color-btn" id="btn-col-orange" style="background: #ff7f00" onclick="selectColor(255, 127, 0, this)"></button>
+                    <button class="color-btn" id="btn-col-yellow" style="background: #ffff00" onclick="selectColor(255, 255, 0, this)"></button>
+                    <button class="color-btn" id="btn-col-green" style="background: #00ff00" onclick="selectColor(0, 255, 0, this)"></button>
+                    <button class="color-btn" id="btn-col-cyan" style="background: #00ffff" onclick="selectColor(0, 255, 255, this)"></button>
+                    <button class="color-btn" id="btn-col-blue" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
+                    <button class="color-btn" id="btn-col-purple" style="background: #8b00ff" onclick="selectColor(139, 0, 255, this)"></button>
+                    <button class="color-btn" id="btn-col-white" style="background: #ffffff" onclick="selectColor(255, 255, 255, this)"></button>
                 </div>
 
                 <span class="label-text">Hiệu ứng:</span>
@@ -168,6 +159,82 @@
 
         let state = { power: "OFF", mode: "static", brightness: 100, color: { r: 255, g: 0, b: 0 } };
 
+        // --- GIỌNG NÓI ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'vi-VN';
+            recognition.continuous = false;
+            
+            recognition.onstart = function() {
+                document.getElementById("btn-voice").classList.add("listening");
+                document.getElementById("voice-text").innerText = "Đang nghe... 👂";
+            };
+            
+            recognition.onend = function() {
+                document.getElementById("btn-voice").classList.remove("listening");
+                setTimeout(() => {
+                    if(!document.getElementById("btn-voice").classList.contains("listening"))
+                        document.getElementById("voice-text").innerText = "Bấm để nói...";
+                }, 3000);
+            };
+
+            recognition.onresult = function(event) {
+                const text = event.results[0][0].transcript.toLowerCase();
+                document.getElementById("voice-text").innerText = 'Đã nghe: "' + text + '"';
+                processVoiceCommand(text);
+            };
+        } else {
+            document.getElementById("voice-text").innerText = "Trình duyệt không hỗ trợ 😢";
+        }
+
+        function toggleVoice() {
+            if (!recognition) return alert("Trình duyệt không hỗ trợ!");
+            recognition.start();
+        }
+
+        function processVoiceCommand(text) {
+            // 1. Lệnh Nguồn
+            if (text.includes("bật")) {
+                document.getElementById("powerSwitch").checked = true;
+                togglePower();
+            } else if (text.includes("tắt") && !text.includes("nhạc")) { // Tránh nhầm với "tắt nhạc"
+                document.getElementById("powerSwitch").checked = false;
+                togglePower();
+            }
+
+            if (state.power === "OFF") return;
+
+            // 2. Lệnh Điều khiển Nhạc (MỚI)
+            let audioPlayer = document.getElementById("audioPlayer");
+            if (text.includes("dừng nhạc") || text.includes("tắt nhạc") || text.includes("ngưng")) {
+                if(audioPlayer) audioPlayer.pause();
+            } 
+            else if (text.includes("tiếp tục") || text.includes("chơi nhạc") || text.includes("phát nhạc")) {
+                if(audioPlayer && state.mode === 'music') audioPlayer.play();
+                else if (state.mode !== 'music') alert("Hãy chuyển sang chế độ Music trước!");
+            }
+
+            // 3. Lệnh Hiệu ứng
+            if (text.includes("chế độ nhạc") || text.includes("quẩy")) selectEffect('music');
+            else if (text.includes("cầu vồng")) selectEffect('rainbow');
+            else if (text.includes("đuổi") || text.includes("chạy")) selectEffect('chase');
+            else if (text.includes("thở") || text.includes("hô hấp")) selectEffect('breath');
+            
+            // 4. Lệnh Màu sắc (Đã map đúng ID nút)
+            else if (text.includes("đỏ")) selectColor(255, 0, 0, document.getElementById('btn-col-red'));
+            else if (text.includes("cam")) selectColor(255, 127, 0, document.getElementById('btn-col-orange'));
+            else if (text.includes("vàng")) selectColor(255, 255, 0, document.getElementById('btn-col-yellow'));
+            else if (text.includes("xanh lá") || text.includes("lục")) selectColor(0, 255, 0, document.getElementById('btn-col-green'));
+            else if (text.includes("xanh lơ") || text.includes("ngọc") || text.includes("da trời")) selectColor(0, 255, 255, document.getElementById('btn-col-cyan'));
+            else if (text.includes("xanh dương") || text.includes("biển") || text.includes("lam")) selectColor(0, 0, 255, document.getElementById('btn-col-blue'));
+            else if (text.includes("tím")) selectColor(139, 0, 255, document.getElementById('btn-col-purple'));
+            else if (text.includes("trắng")) selectColor(255, 255, 255, document.getElementById('btn-col-white'));
+        }
+
+        // --- CORE FUNCTIONS ---
         function startConnection() {
             let u = document.getElementById("mqttUser").value;
             let p = document.getElementById("mqttPass").value;
@@ -214,13 +281,10 @@
         }
 
         function updateUIState() {
-            // Xóa hết active của nút hiệu ứng
             document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
-            // Highlight nút mode hiện tại
             let activeBtn = document.getElementById('btn-' + state.mode);
             if (activeBtn) activeBtn.classList.add('active');
 
-            // Xử lý khung Music
             let musicContainer = document.getElementById("musicContainer");
             if (state.mode === 'music') {
                 musicContainer.classList.add("enabled");
@@ -234,12 +298,10 @@
             state.color = { r: r, g: g, b: b };
             document.getElementById("customColorPicker").value = rgbToHex(r, g, b);
             
-            if (state.mode === "rainbow") {
-                state.mode = "static";
-            }
-            
+            if (state.mode === "rainbow") state.mode = "static";
             updateUIState();
             
+            // Xóa active cũ và thêm active mới
             if (btnElement) {
                 document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 btnElement.classList.add('active');
@@ -257,27 +319,22 @@
 
         function selectEffect(effectName) {
             state.mode = effectName;
-            
-            // Xóa active của tất cả nút màu trước (để chuẩn bị highlight cái mới)
             document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
 
             if (effectName === 'chase') {
                 state.color = { r: 255, g: 0, b: 0 }; 
                 document.getElementById("customColorPicker").value = "#ff0000";
-                // Tự động highlight nút Đỏ
-                document.getElementById('btn-color-red').classList.add('active');
-            } 
-            else if (effectName === 'breath') {
+                document.getElementById('btn-col-red').classList.add('active'); // Tự bấm nút Đỏ
+            } else if (effectName === 'breath') {
                 state.color = { r: 0, g: 0, b: 255 }; 
                 document.getElementById("customColorPicker").value = "#0000ff";
-                // Tự động highlight nút Xanh dương
-                document.getElementById('btn-color-blue').classList.add('active');
+                document.getElementById('btn-col-blue').classList.add('active'); // Tự bấm nút Xanh
             }
-
             updateUIState();
             sendCommand();
         }
 
+        // --- MUSIC LOGIC ---
         function handleFileUpload(input) {
             let file = input.files[0];
             if (file) {
@@ -315,7 +372,6 @@
         function analyzeLoop() {
             if (!isAnalyzing) return;
             requestAnimationFrame(analyzeLoop);
-
             if (state.mode !== 'music') return;
 
             analyser.getByteFrequencyData(dataArray);
@@ -328,7 +384,6 @@
                 if (now - lastBeatTime > 100) { 
                     lastBeatTime = now;
                     sendCommand({ beat: true });
-                    
                     let container = document.getElementById("musicContainer");
                     container.classList.add("music-active");
                     setTimeout(() => container.classList.remove("music-active"), 100);
