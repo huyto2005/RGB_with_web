@@ -3,33 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT</title>
+    <title>ESP32 IoT LEDRGB </title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* GIỮ NGUYÊN CSS CŨ */
+        /* CSS CHUẨN GIỮ NGUYÊN */
         :root { --bg-color: #1e1e2e; --panel-color: #2b2b3b; --text-color: #ffffff; --accent-color: #00bcd4; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
+        
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); z-index: 1000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background-color: var(--panel-color); padding: 40px; border-radius: 20px; width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
         .login-input { width: 100%; padding: 12px; margin: 10px 0; background: #3a3a4a; border: 1px solid #555; border-radius: 8px; color: white; box-sizing: border-box; }
         .login-btn { width: 100%; padding: 12px; background: var(--accent-color); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
         #kicked-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
         .busy-icon { font-size: 60px; color: #ff4444; margin-bottom: 20px; animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
         #dashboard-screen { display: none; }
         .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; position: relative;}
         h2 { margin-top: 0; color: var(--accent-color); }
         .status { font-size: 12px; margin-bottom: 20px; color: #888; }
         .status.connected { color: #00ff88; }
         .status.disconnected { color: #ff4444; }
+
         .voice-container { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #444; }
         .voice-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #333; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s; }
         .voice-btn:hover { background: var(--accent-color); transform: scale(1.1); }
         .voice-btn.listening { background: #ff4444; animation: pulse-voice 1.5s infinite; }
         @keyframes pulse-voice { 0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); } }
         #voice-text { display: block; margin-top: 10px; font-size: 14px; color: var(--accent-color); font-style: italic; height: 20px; }
+
         .power-container { display: flex; justify-content: space-between; align-items: center; background: #3a3a4a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -59,8 +64,13 @@
         audio { width: 100%; height: 30px; margin-top: 5px; border-radius: 20px; }
         .music-active { border: 2px solid #ff4444 !important; box-shadow: 0 0 15px #ff4444; }
         
-        /* CLASS KHÓA MÀU (Visual Only) */
-        .color-locked { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
+        /* ⭐ SỬA LẠI GIAO DIỆN KHÓA ĐẸP HƠN */
+        .disabled-section { 
+            opacity: 0.6; /* Sáng hơn (cũ là 0.2) */
+            pointer-events: none; /* Vẫn khóa click */
+            cursor: not-allowed;
+            /* Bỏ grayscale để giữ màu sắc */
+        }
     </style>
 </head>
 <body>
@@ -102,7 +112,7 @@
             </div>
 
             <div id="controls-area" class="disabled-ui">
-                <div class="slider-container">
+                <div class="slider-container" id="brightness-section">
                     <span class="label-text">Độ sáng: <span id="brightVal" style="color:var(--accent-color)">100</span>%</span>
                     <input type="range" min="0" max="100" value="100" id="brightnessRange" oninput="updateBrightness()">
                 </div>
@@ -255,7 +265,6 @@
             sendCommand();
         }
 
-        // --- HÀM CẬP NHẬT UI (KHÓA MÀU) ---
         function updateUIState() {
             document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
             let activeBtn = document.getElementById('btn-' + state.mode);
@@ -263,13 +272,26 @@
 
             let musicContainer = document.getElementById("musicContainer");
             let colorGroup = document.getElementById("color-section-group");
+            let brightnessGroup = document.getElementById("brightness-section");
 
             if (state.mode === 'music') {
                 musicContainer.classList.add("enabled");
-                colorGroup.classList.add("color-locked"); // Khóa bảng màu
-            } else {
+                colorGroup.classList.add("disabled-section");
+                brightnessGroup.classList.add("disabled-section");
+                
+                document.getElementById("brightnessRange").value = 100;
+                document.getElementById("brightVal").innerText = 100;
+            } 
+            else if (state.mode === 'rainbow') {
                 musicContainer.classList.remove("enabled");
-                colorGroup.classList.remove("color-locked"); // Mở bảng màu
+                colorGroup.classList.add("disabled-section");
+                brightnessGroup.classList.remove("disabled-section");
+                document.getElementById('audioPlayer').pause();
+            }
+            else {
+                musicContainer.classList.remove("enabled");
+                colorGroup.classList.remove("disabled-section");
+                brightnessGroup.classList.remove("disabled-section");
                 document.getElementById('audioPlayer').pause();
             }
         }
@@ -310,7 +332,6 @@
             sendCommand();
         }
 
-        // --- VOICE ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
         if (SpeechRecognition) {
@@ -371,60 +392,100 @@
             else if (text.includes("trắng")) selectColor(255, 255, 255, document.getElementById('btn-col-white'));
         }
 
-        // --- MUSIC ---
+        // --- MUSIC LOGIC (ĐÃ SỬA) ---
         let audioContext, analyser, source, dataArray;
         let isAnalyzing = false;
         let lastBeatTime = 0;
 
         function handleFileUpload(input) {
             let file = input.files[0];
-            if (file) {
-                let url = URL.createObjectURL(file);
+            
+            // 1. Kiểm tra nếu không chọn file
+            if (!file) return;
+
+            // 2. ⭐ KIỂM TRA ĐỊNH DẠNG FILE (MỚI)
+            // Chỉ chấp nhận file có type bắt đầu bằng "audio/"
+            if (!file.type.startsWith("audio/")) {
+                alert("Lỗi: Vui lòng chỉ chọn file nhạc (MP3, WAV, OGG...)! 🚫");
+                
+                // Reset lại ô input để chọn lại
+                input.value = ""; 
+                return;
+            }
+
+            // Nếu đúng là file nhạc thì chạy tiếp...
+            let url = URL.createObjectURL(file);
+            let player = document.getElementById("audioPlayer");
+            player.src = url;
+            document.getElementById("fileName").innerText = "🎵 " + file.name;
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            initAudioContext();
+        }
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 let player = document.getElementById("audioPlayer");
-                player.src = url;
-                document.getElementById("fileName").innerText = "🎵 " + file.name;
-                if (!audioContext) initAudioContext();
+                // Kiểm tra xem đã kết nối source chưa để tránh lỗi
+                if (!source) {
+                    source = audioContext.createMediaElementSource(player);
+                    analyser = audioContext.createAnalyser();
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                    analyser.fftSize = 256;
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                }
             }
         }
-        function initAudioContext() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            let player = document.getElementById("audioPlayer");
-            source = audioContext.createMediaElementSource(player);
-            analyser = audioContext.createAnalyser();
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-            analyser.fftSize = 256;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-        }
+
         function startMusicAnalysis() {
-            if (!audioContext) initAudioContext();
+            initAudioContext();
             audioContext.resume();
             isAnalyzing = true;
+            
+            // ⭐ QUAN TRỌNG: Đảm bảo mode là music khi bấm Play
+            if (state.mode !== 'music') {
+                state.mode = 'music';
+                updateUIState();
+            }
+            
             analyzeLoop();
         }
+
         function pauseMusicAnalysis() {
             isAnalyzing = false;
-            document.getElementById("musicContainer").classList.remove("music-active");
+            // Không xóa class active để tránh giật giao diện
         }
+
         function analyzeLoop() {
             if (!isAnalyzing) return;
             requestAnimationFrame(analyzeLoop);
+
             if (state.mode !== 'music') return;
+
             analyser.getByteFrequencyData(dataArray);
             let bassSum = 0;
             for (let i = 0; i < 10; i++) bassSum += dataArray[i];
             let bassAvg = bassSum / 10;
-            if (bassAvg > 210) { 
+
+            // ⭐ NGƯỠNG HẠ XUỐNG 180 (Nhạy hơn)
+            if (bassAvg > 180) { 
                 let now = Date.now();
                 if (now - lastBeatTime > 100) { 
                     lastBeatTime = now;
                     sendCommand({ beat: true });
+                    
                     let container = document.getElementById("musicContainer");
                     container.classList.add("music-active");
                     setTimeout(() => container.classList.remove("music-active"), 100);
                 }
             }
         }
+
         function rgbToHex(r, g, b) {
             return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
         }

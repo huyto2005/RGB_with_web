@@ -23,8 +23,8 @@ private:
     
     // --- BIẾN CHO MUSIC MODE ---
     int musicBrightness = 0;
-    uint32_t musicColor = 0; // Biến lưu màu ngẫu nhiên
-    const int baseBrightness = 60; // Độ sáng nền (tùy chỉnh)
+    uint32_t musicColor = 0; 
+    const int baseBrightness = 60; // Độ sáng nền (Sáng nhẹ khi không có nhạc)
 
 public:
     int r = 0, g = 0, b = 0;
@@ -102,12 +102,9 @@ public:
         else if (effectName == "chase") currentEffect = CHASE;
         else if (effectName == "music") { 
             currentEffect = MUSIC; 
-            
-            // Khởi tạo: Sáng nền + Màu ngẫu nhiên đầu tiên
+            // Khởi tạo: Sáng nền + Màu ngẫu nhiên
             musicBrightness = baseBrightness; 
             pixels->setBrightness(musicBrightness);
-            
-            // Random màu luôn khi vừa vào chế độ
             musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
             for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
             pixels->show();
@@ -119,27 +116,29 @@ public:
         }
     }
 
-    // ⭐ SỬA LOGIC TẠI ĐÂY: RANDOM 100%
+    // ⭐ SỬA LỖI: LUÔN RANDOM MÀU KHI CÓ BEAT
     void triggerBeat() {
         if (!powerState || currentEffect != MUSIC) return;
         
-        // 1. Luôn sinh màu ngẫu nhiên (HSV cho rực rỡ)
+        // 1. Tạo màu mới (Bắt buộc Random)
         musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
 
-        // 2. Đẩy sáng lên Max
+        // 2. Bùng sáng Max (255)
         musicBrightness = 255; 
         pixels->setBrightness(musicBrightness);
         
-        // 3. Hiển thị
+        // 3. Hiển thị ngay lập tức
         for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
         pixels->show();
     }
 
+    // ⭐ HÀM LOOP ĐỂ CHẠY HIỆU ỨNG (Cần được gọi trong main.cpp)
     void loop() {
         if (!powerState || currentEffect == STATIC) return;
 
         if (millis() - lastUpdate >= effectSpeed) {
             lastUpdate = millis();
+            
             if (useRainbowColor) currentHue += 256;
 
             switch (currentEffect) {
@@ -153,11 +152,12 @@ public:
     }
 
 private:
+    // Logic làm dịu đèn (Pulse) sau khi Beat đánh
     void runMusicDecay() {
         bool changed = false;
         
         if (musicBrightness > baseBrightness) {
-            musicBrightness -= 15; // Giảm sáng
+            musicBrightness -= 15; // Giảm độ sáng
             if (musicBrightness < baseBrightness) musicBrightness = baseBrightness;
             changed = true;
         } 
@@ -168,7 +168,7 @@ private:
 
         if (changed) {
             pixels->setBrightness(musicBrightness);
-            // Vẽ lại đúng cái màu RANDOM đang lưu
+            // Vẽ lại đúng màu đang lưu (musicColor)
             for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
             pixels->show();
         }

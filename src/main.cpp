@@ -5,6 +5,7 @@
 #include <ArduinoJson.h>
 #include "LedRGB.h" 
 
+// CẤU HÌNH WIFI/MQTT (GIỮ NGUYÊN THÔNG TIN CỦA BẠN)
 const char* ssid = "Huy tồ";           
 const char* password = "123456789";    
 const char* mqtt_server = "53beae9b0e4b41f3b1b2dc76a5b641eb.s1.eu.hivemq.cloud";
@@ -43,8 +44,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
     int pwmBright = map(bright, 0, 100, 0, 255);
     led.setBrightness(pwmBright); 
 
+    // Xử lý BEAT: Chỉ cần gọi triggerBeat, nó sẽ tự Random màu
     if (currentMode == "music" && doc["beat"] == true) {
-        led.triggerBeat(); // Hàm này giờ sẽ tự Random màu
+        led.triggerBeat();
         return; 
     }
 
@@ -92,6 +94,8 @@ void setup() {
 void loop() {
     if (!client.connected()) reconnect();
     client.loop();
+    
+    // ⭐ QUAN TRỌNG: PHẢI CÓ DÒNG NÀY ĐÈN MỚI NHÁY ĐƯỢC
     led.loop(); 
 }
 
