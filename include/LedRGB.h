@@ -11,9 +11,8 @@ private:
     int count;
     Adafruit_NeoPixel* pixels;
     
-    // Thay Ticker bằng biến đếm thời gian (An toàn tuyệt đối)
     unsigned long lastUpdate = 0;
-    int effectSpeed = 0; // Tốc độ hiệu ứng
+    int effectSpeed = 0;
     
     long step = 0;
     int fadeDir = 1;
@@ -21,7 +20,11 @@ private:
     
     bool useRainbowColor = false;
     uint16_t currentHue = 0;
+    
+    // --- BIẾN CHO MUSIC MODE ---
     int musicBrightness = 0;
+    uint32_t musicColor = 0; // Biến lưu màu ngẫu nhiên
+    const int baseBrightness = 60; // Độ sáng nền (tùy chỉnh)
 
 public:
     int r = 0, g = 0, b = 0;
@@ -43,7 +46,6 @@ public:
         powerState = state;
         if (powerState) {
             pixels->setBrightness(globalBrightness);
-            // Vẽ lại trạng thái hiện tại ngay khi bật
             if (currentEffect == STATIC) {
                 uint32_t c = useRainbowColor ? pixels->ColorHSV(currentHue) : pixels->Color(r, g, b);
                 for(int i=0; i<count; i++) pixels->setPixelColor(i, c);
@@ -60,7 +62,6 @@ public:
         if (b < 0) b = 0; if (b > 255) b = 255;
         globalBrightness = b;
         
-        // Nếu không phải Music (Music tự quản lý độ sáng), thì update ngay
         if (currentEffect != MUSIC) {
             pixels->setBrightness(globalBrightness);
             if (currentEffect == STATIC) {
@@ -76,64 +77,69 @@ public:
         useRainbowColor = false;
     }
 
-    // Hàm set màu tĩnh (Sẽ dừng mọi hiệu ứng)
     void setColor(int r, int g, int b) {
         if (!powerState) return;
-        
-        currentEffect = STATIC; // Chuyển về tĩnh
+        currentEffect = STATIC;
         useRainbowColor = false;
-        
         this->r = r; this->g = g; this->b = b;
         pixels->setBrightness(globalBrightness);
         for(int i=0; i<count; i++) pixels->setPixelColor(i, pixels->Color(r, g, b));
         pixels->show();
     }
 
-    // ⭐ HÀM QUAN TRỌNG: Thiết lập hiệu ứng (Reset trạng thái sạch sẽ)
     void setEffect(String effectName, int speedMs, bool isRainbow = false) {
         if (!powerState) return;
         
-        // 1. Reset các biến đếm
         step = 0;
         effectSpeed = speedMs;
-        lastUpdate = millis(); // Đặt lại đồng hồ
+        lastUpdate = millis();
         useRainbowColor = isRainbow;
 
-        // 2. Chuyển chế độ
+        currentEffect = STATIC;
+
         if (effectName == "rainbow") currentEffect = RAINBOW;
         else if (effectName == "fade") { currentEffect = FADE; fadeVal = 0; }
         else if (effectName == "chase") currentEffect = CHASE;
         else if (effectName == "music") { 
             currentEffect = MUSIC; 
-            musicBrightness = 0; 
-            pixels->setBrightness(0); // Music bắt đầu từ tối
+            
+            // Khởi tạo: Sáng nền + Màu ngẫu nhiên đầu tiên
+            musicBrightness = baseBrightness; 
+            pixels->setBrightness(musicBrightness);
+            
+            // Random màu luôn khi vừa vào chế độ
+            musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
+            for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
             pixels->show();
         }
         else currentEffect = STATIC;
 
-        // 3. Khôi phục độ sáng nếu không phải Music
         if (currentEffect != MUSIC) {
             pixels->setBrightness(globalBrightness);
         }
     }
 
+    // ⭐ SỬA LOGIC TẠI ĐÂY: RANDOM 100%
     void triggerBeat() {
         if (!powerState || currentEffect != MUSIC) return;
+        
+        // 1. Luôn sinh màu ngẫu nhiên (HSV cho rực rỡ)
+        musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
+
+        // 2. Đẩy sáng lên Max
         musicBrightness = 255; 
         pixels->setBrightness(musicBrightness);
-        uint32_t c = pixels->Color(r, g, b);
-        for(int i=0; i<count; i++) pixels->setPixelColor(i, c);
+        
+        // 3. Hiển thị
+        for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
         pixels->show();
     }
 
-    // ⭐ HÀM LOOP MỚI: Gọi trong main loop
     void loop() {
         if (!powerState || currentEffect == STATIC) return;
 
-        // Kiểm tra thời gian (Thay thế Ticker)
         if (millis() - lastUpdate >= effectSpeed) {
             lastUpdate = millis();
-            
             if (useRainbowColor) currentHue += 256;
 
             switch (currentEffect) {
@@ -148,12 +154,22 @@ public:
 
 private:
     void runMusicDecay() {
-        if (musicBrightness > 0) {
-            musicBrightness -= 15; 
-            if (musicBrightness < 0) musicBrightness = 0;
+        bool changed = false;
+        
+        if (musicBrightness > baseBrightness) {
+            musicBrightness -= 15; // Giảm sáng
+            if (musicBrightness < baseBrightness) musicBrightness = baseBrightness;
+            changed = true;
+        } 
+        else if (musicBrightness < baseBrightness) {
+            musicBrightness = baseBrightness;
+            changed = true;
+        }
+
+        if (changed) {
             pixels->setBrightness(musicBrightness);
-            uint32_t c = pixels->Color(r, g, b);
-            for(int i=0; i<count; i++) pixels->setPixelColor(i, c);
+            // Vẽ lại đúng cái màu RANDOM đang lưu
+            for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
             pixels->show();
         }
     }
@@ -168,7 +184,7 @@ private:
     }
 
     void runFade() {
-        int actualBrightness = map(fadeVal, 0, 255, 10, globalBrightness); // Min 10 để không tắt hẳn
+        int actualBrightness = map(fadeVal, 0, 255, 10, globalBrightness);
         pixels->setBrightness(actualBrightness);
         uint32_t color = useRainbowColor ? pixels->ColorHSV(currentHue, 255, 255) : pixels->Color(r, g, b);
         for(int i=0; i<count; i++) pixels->setPixelColor(i, color);
@@ -191,5 +207,4 @@ private:
 };
 
 #endif
-
 

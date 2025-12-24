@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 IoT Auto-Kick</title>
+    <title>ESP32 IoT</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -11,35 +11,25 @@
         /* GIỮ NGUYÊN CSS CŨ */
         :root { --bg-color: #1e1e2e; --panel-color: #2b2b3b; --text-color: #ffffff; --accent-color: #00bcd4; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; user-select: none; overflow: hidden; }
-        
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); z-index: 1000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background-color: var(--panel-color); padding: 40px; border-radius: 20px; width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
         .login-input { width: 100%; padding: 12px; margin: 10px 0; background: #3a3a4a; border: 1px solid #555; border-radius: 8px; color: white; box-sizing: border-box; }
         .login-btn { width: 100%; padding: 12px; background: var(--accent-color); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        
-        /* MÀN HÌNH BỊ ĐÁ (KICKED) */
-        #kicked-screen { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background-color: rgba(0,0,0,0.95); z-index: 2000; 
-            justify-content: center; align-items: center; flex-direction: column; text-align: center;
-        }
+        #kicked-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
         .busy-icon { font-size: 60px; color: #ff4444; margin-bottom: 20px; animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
         #dashboard-screen { display: none; }
         .dashboard { background-color: var(--panel-color); padding: 30px; border-radius: 20px; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; position: relative;}
         h2 { margin-top: 0; color: var(--accent-color); }
         .status { font-size: 12px; margin-bottom: 20px; color: #888; }
         .status.connected { color: #00ff88; }
         .status.disconnected { color: #ff4444; }
-
         .voice-container { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #444; }
         .voice-btn { width: 60px; height: 60px; border-radius: 50%; border: none; background: #333; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.3s; }
         .voice-btn:hover { background: var(--accent-color); transform: scale(1.1); }
         .voice-btn.listening { background: #ff4444; animation: pulse-voice 1.5s infinite; }
         @keyframes pulse-voice { 0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); } }
         #voice-text { display: block; margin-top: 10px; font-size: 14px; color: var(--accent-color); font-style: italic; height: 20px; }
-
         .power-container { display: flex; justify-content: space-between; align-items: center; background: #3a3a4a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -68,6 +58,9 @@
         input[type="file"] { display: none; }
         audio { width: 100%; height: 30px; margin-top: 5px; border-radius: 20px; }
         .music-active { border: 2px solid #ff4444 !important; box-shadow: 0 0 15px #ff4444; }
+        
+        /* CLASS KHÓA MÀU (Visual Only) */
+        .color-locked { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
     </style>
 </head>
 <body>
@@ -96,9 +89,7 @@
             <button onclick="handleLogout()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #666; cursor: pointer;"><i class="fas fa-sign-out-alt"></i></button>
 
             <div class="voice-container">
-                <button id="btn-voice" class="voice-btn" onclick="toggleVoice()">
-                    <i class="fas fa-microphone"></i>
-                </button>
+                <button id="btn-voice" class="voice-btn" onclick="toggleVoice()"><i class="fas fa-microphone"></i></button>
                 <span id="voice-text">Bấm để nói...</span>
             </div>
 
@@ -117,23 +108,25 @@
                 </div>
                 <hr style="border-color: #444; opacity: 0.5; margin: 15px 0;">
 
-                <span class="label-text">Màu đang hiển thị:</span>
-                <div class="current-color-section">
-                    <div class="color-picker-wrapper">
-                        <input type="color" id="customColorPicker" value="#ff0000" oninput="handleColorWheel(this.value)">
+                <div id="color-section-group">
+                    <span class="label-text">Màu đang hiển thị:</span>
+                    <div class="current-color-section">
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="customColorPicker" value="#ff0000" oninput="handleColorWheel(this.value)">
+                        </div>
                     </div>
-                </div>
 
-                <span class="label-text">Màu có sẵn:</span>
-                <div class="color-grid">
-                    <button class="color-btn" id="btn-col-red" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
-                    <button class="color-btn" id="btn-col-orange" style="background: #ff7f00" onclick="selectColor(255, 127, 0, this)"></button>
-                    <button class="color-btn" id="btn-col-yellow" style="background: #ffff00" onclick="selectColor(255, 255, 0, this)"></button>
-                    <button class="color-btn" id="btn-col-green" style="background: #00ff00" onclick="selectColor(0, 255, 0, this)"></button>
-                    <button class="color-btn" id="btn-col-cyan" style="background: #00ffff" onclick="selectColor(0, 255, 255, this)"></button>
-                    <button class="color-btn" id="btn-col-blue" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
-                    <button class="color-btn" id="btn-col-purple" style="background: #8b00ff" onclick="selectColor(139, 0, 255, this)"></button>
-                    <button class="color-btn" id="btn-col-white" style="background: #ffffff" onclick="selectColor(255, 255, 255, this)"></button>
+                    <span class="label-text">Màu có sẵn:</span>
+                    <div class="color-grid">
+                        <button class="color-btn" id="btn-col-red" style="background: #ff0000" onclick="selectColor(255, 0, 0, this)"></button>
+                        <button class="color-btn" id="btn-col-orange" style="background: #ff7f00" onclick="selectColor(255, 127, 0, this)"></button>
+                        <button class="color-btn" id="btn-col-yellow" style="background: #ffff00" onclick="selectColor(255, 255, 0, this)"></button>
+                        <button class="color-btn" id="btn-col-green" style="background: #00ff00" onclick="selectColor(0, 255, 0, this)"></button>
+                        <button class="color-btn" id="btn-col-cyan" style="background: #00ffff" onclick="selectColor(0, 255, 255, this)"></button>
+                        <button class="color-btn" id="btn-col-blue" style="background: #0000ff" onclick="selectColor(0, 0, 255, this)"></button>
+                        <button class="color-btn" id="btn-col-purple" style="background: #8b00ff" onclick="selectColor(139, 0, 255, this)"></button>
+                        <button class="color-btn" id="btn-col-white" style="background: #ffffff" onclick="selectColor(255, 255, 255, this)"></button>
+                    </div>
                 </div>
 
                 <span class="label-text">Hiệu ứng:</span>
@@ -151,6 +144,7 @@
                     </label>
                     <span id="fileName" style="font-size: 11px; color: #888; display: block; margin-bottom: 5px;">Chưa chọn bài hát</span>
                     <audio id="audioPlayer" controls onplay="startMusicAnalysis()" onpause="pauseMusicAnalysis()"></audio>
+                    <div style="font-size: 11px; color: #888; margin-top:5px;">(Màu sẽ tự đổi ngẫu nhiên theo nhịp)</div>
                 </div>
             </div>
         </div>
@@ -164,45 +158,26 @@
         
         let client = null;
         let sessionID = "sess_" + Math.random().toString(36).substr(2, 9);
-        
-        // ⭐ BIẾN QUAN TRỌNG: CỜ XÁC NHẬN CHỦ QUYỀN
         let isSecure = false; 
+        let state = { power: "OFF", mode: "static", brightness: 100, color: { r: 255, g: 0, b: 0 } };
 
-        // --- 1. LOGIC KẾT NỐI (NGƯỜI SAU ĐÁ NGƯỜI TRƯỚC) ---
         function startConnection() {
             let u = document.getElementById("mqttUser").value;
             let p = document.getElementById("mqttPass").value;
             if(!u || !p) return alert("Nhập đủ thông tin!");
-            
             document.getElementById("login-msg").innerText = "Đang kết nối...";
             document.getElementById("login-msg").style.color = "yellow";
-            
             const clientID = "web_" + sessionID;
             client = new Paho.MQTT.Client(host, port, clientID);
-
             let lastWill = new Paho.MQTT.Message("FREE");
             lastWill.destinationName = topicLock;
             lastWill.retained = true; 
-
-            client.connect({ 
-                onSuccess: onConnect, 
-                onFailure: onFail, 
-                useSSL: true, 
-                userName: u, 
-                password: p,
-                willMessage: lastWill 
-            });
+            client.connect({ onSuccess: onConnect, onFailure: onFail, useSSL: true, userName: u, password: p, willMessage: lastWill });
             client.onMessageArrived = onMessageArrived;
         }
 
         function onConnect() {
-            console.log("Connected! Claiming lock...");
-            
-            // 1. Đăng ký nghe tin (để biết nếu sau này có ai đá mình)
             client.subscribe(topicLock);
-            
-            // 2. GỬI LỆNH CHIẾM QUYỀN NGAY (Ghi đè người cũ)
-            // Retained = true để lưu lại trên server
             let msg = new Paho.MQTT.Message("LOCKED:" + sessionID);
             msg.destinationName = topicLock;
             msg.retained = true; 
@@ -210,32 +185,17 @@
         }
 
         function onMessageArrived(message) {
-            // Xử lý logic tranh chấp
             if (message.destinationName === topicLock) {
                 let payload = message.payloadString;
-                console.log("Lock Update:", payload);
-
                 if (payload.startsWith("LOCKED:")) {
                     let ownerID = payload.split(":")[1];
-                    
                     if (ownerID === sessionID) {
-                        // A. Tin nhắn của chính mình (server gửi về)
-                        // -> Xác nhận đã chiếm quyền thành công
                         isSecure = true; 
                         showDashboard();
-                    } 
-                    else {
-                        // B. Tin nhắn của người khác
+                    } else {
                         if (isSecure) {
-                            // Mình đang dùng (isSecure=true) mà thấy ID lạ -> BỊ ĐÁ!
-                            console.warn("Bị đá bởi thiết bị khác!");
                             showKickedScreen();
-                            client.disconnect(); // Ngắt mạng ngay
-                        } else {
-                            // Mình vừa mới vào (isSecure=false) mà thấy ID lạ
-                            // -> Đây là tin nhắn cũ của người trước -> KỆ NÓ.
-                            // Mình đã gửi lệnh LOCKED của mình rồi, chờ tin của mình về thôi.
-                            console.log("Thấy ID cũ, bỏ qua chờ chiếm quyền...");
+                            client.disconnect(); 
                         }
                     }
                 }
@@ -267,12 +227,6 @@
             location.reload();
         }
 
-        // --- CÁC HÀM CŨ GIỮ NGUYÊN BÊN DƯỚI (Voice, Color, Music...) ---
-        let audioContext, analyser, source, dataArray;
-        let isAnalyzing = false;
-        let lastBeatTime = 0;
-        let state = { power: "OFF", mode: "static", brightness: 100, color: { r: 255, g: 0, b: 0 } };
-
         function onFail(e) { console.log(e); document.getElementById("login-msg").innerText = "Lỗi kết nối!"; }
 
         function sendCommand(extraData = {}) {
@@ -301,15 +255,21 @@
             sendCommand();
         }
 
+        // --- HÀM CẬP NHẬT UI (KHÓA MÀU) ---
         function updateUIState() {
             document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
             let activeBtn = document.getElementById('btn-' + state.mode);
             if (activeBtn) activeBtn.classList.add('active');
 
             let musicContainer = document.getElementById("musicContainer");
-            if (state.mode === 'music') musicContainer.classList.add("enabled");
-            else {
+            let colorGroup = document.getElementById("color-section-group");
+
+            if (state.mode === 'music') {
+                musicContainer.classList.add("enabled");
+                colorGroup.classList.add("color-locked"); // Khóa bảng màu
+            } else {
                 musicContainer.classList.remove("enabled");
+                colorGroup.classList.remove("color-locked"); // Mở bảng màu
                 document.getElementById('audioPlayer').pause();
             }
         }
@@ -350,6 +310,7 @@
             sendCommand();
         }
 
+        // --- VOICE ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
         if (SpeechRecognition) {
@@ -409,6 +370,11 @@
             else if (text.includes("tím")) selectColor(139, 0, 255, document.getElementById('btn-col-purple'));
             else if (text.includes("trắng")) selectColor(255, 255, 255, document.getElementById('btn-col-white'));
         }
+
+        // --- MUSIC ---
+        let audioContext, analyser, source, dataArray;
+        let isAnalyzing = false;
+        let lastBeatTime = 0;
 
         function handleFileUpload(input) {
             let file = input.files[0];
