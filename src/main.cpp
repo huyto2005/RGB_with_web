@@ -9,7 +9,7 @@
 // --- CẤU HÌNH ---
 const char* ssid = "Huy tồ";           
 const char* password = "123456789";    
-const char* mqtt_server = "53beae9b0e4b41f3b1b2dc76a5b641eb.s1.eu.hivemq.cloud";
+const char* mqtt_server = "4137969922e04db986eb36cd1271ac95.s1.eu.hivemq.cloud";
 const int mqtt_port = 8883;            
 const char* mqtt_user = "esp32_user";  
 const char* mqtt_pass = "Esp123456";   

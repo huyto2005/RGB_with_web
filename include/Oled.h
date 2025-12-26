@@ -87,7 +87,7 @@ public:
         display.print("Bri: ");
         int percent = map(bright, 0, 255, 0, 100); // Đổi 0-255 về 0-100%
         display.setTextSize(2); 
-        display.print(percent);
+        display.print(percent + 1);
         display.setTextSize(1);
         display.print("%");
 
