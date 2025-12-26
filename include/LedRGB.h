@@ -31,7 +31,7 @@ public:
     EffectState currentEffect = STATIC;
     bool powerState = true; 
 
-    LedRGB(int pin, int count = 8) : pin(pin), count(count) {
+    LedRGB(int pin, int count = 8) : pin(   pin), count(count) {
         pixels = new Adafruit_NeoPixel(count, pin, NEO_GRB + NEO_KHZ800);
     }
 

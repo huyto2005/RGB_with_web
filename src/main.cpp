@@ -137,8 +137,17 @@ void setup() {
     Serial.print("[SETUP] Ket noi WiFi: ");
     Serial.println(ssid);
     WiFi.begin(ssid, password);
+    
+    unsigned long wifiStartTime = millis(); // Lưu thời gian bắt đầu dò WiFi
     while (WiFi.status() != WL_CONNECTED) {
-        delay(500); Serial.print(".");
+        delay(500); 
+        Serial.print(".");
+
+        // Kiểm tra nếu thời gian dò WiFi vượt quá 5 phút (300.000 ms)
+        if (millis() - wifiStartTime > 300000) {
+            Serial.println("\n[SETUP] WiFi connection failed after 5 minutes. Restarting...");
+            ESP.restart(); // Reset thiết bị
+        }
     }
     Serial.println("\n[SETUP] WiFi Connected! IP: " + WiFi.localIP().toString());
 
