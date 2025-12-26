@@ -21,10 +21,9 @@ private:
     bool useRainbowColor = false;
     uint16_t currentHue = 0;
     
-    // --- BIẾN CHO MUSIC MODE ---
     int musicBrightness = 0;
     uint32_t musicColor = 0; 
-    const int baseBrightness = 60; // Độ sáng nền (Sáng nhẹ khi không có nhạc)
+    const int baseBrightness = 60; 
 
 public:
     int r = 0, g = 0, b = 0;
@@ -40,14 +39,17 @@ public:
         pixels->begin();
         pixels->setBrightness(globalBrightness);
         pixels->show();
+        Serial.println("[LED_DRIVER] Da khoi tao NeoPixel tai chan GPIO " + String(pin));
     }
 
     void setPower(bool state) {
         powerState = state;
+        Serial.print("[LED_DRIVER] Set Power: "); Serial.println(state ? "ON" : "OFF");
         if (powerState) {
             pixels->setBrightness(globalBrightness);
             if (currentEffect == STATIC) {
-                uint32_t c = useRainbowColor ? pixels->ColorHSV(currentHue) : pixels->Color(r, g, b);
+                // Vẽ lại màu cũ
+                uint32_t c = pixels->Color(r, g, b);
                 for(int i=0; i<count; i++) pixels->setPixelColor(i, c);
                 pixels->show();
             }
@@ -62,11 +64,12 @@ public:
         if (b < 0) b = 0; if (b > 255) b = 255;
         globalBrightness = b;
         
+        Serial.printf("[LED_DRIVER] Set Brightness: %d\n", b);
+
         if (currentEffect != MUSIC) {
             pixels->setBrightness(globalBrightness);
             if (currentEffect == STATIC) {
-                uint32_t c = useRainbowColor ? pixels->ColorHSV(currentHue) : pixels->Color(r, g, b);
-                for(int i=0; i<count; i++) pixels->setPixelColor(i, c);
+                for(int i=0; i<count; i++) pixels->setPixelColor(i, pixels->Color(r, g, b));
                 pixels->show();
             }
         }
@@ -78,31 +81,37 @@ public:
     }
 
     void setColor(int r, int g, int b) {
-        if (!powerState) return;
+        if (!powerState) {
+            Serial.println("[LED_DRIVER] Bo qua lenh SetColor vi Power dang OFF");
+            return;
+        }
+        
+        Serial.printf("[LED_DRIVER] Set Color STATIC: %d, %d, %d\n", r, g, b);
+
         currentEffect = STATIC;
         useRainbowColor = false;
         this->r = r; this->g = g; this->b = b;
+        
         pixels->setBrightness(globalBrightness);
         for(int i=0; i<count; i++) pixels->setPixelColor(i, pixels->Color(r, g, b));
-        pixels->show();
+        pixels->show(); // <--- Lệnh quan trọng nhất để đèn sáng
     }
 
     void setEffect(String effectName, int speedMs, bool isRainbow = false) {
         if (!powerState) return;
         
+        Serial.println("[LED_DRIVER] Chuyen Effect: " + effectName);
+
         step = 0;
         effectSpeed = speedMs;
         lastUpdate = millis();
         useRainbowColor = isRainbow;
-
-        currentEffect = STATIC;
 
         if (effectName == "rainbow") currentEffect = RAINBOW;
         else if (effectName == "fade") { currentEffect = FADE; fadeVal = 0; }
         else if (effectName == "chase") currentEffect = CHASE;
         else if (effectName == "music") { 
             currentEffect = MUSIC; 
-            // Khởi tạo: Sáng nền + Màu ngẫu nhiên
             musicBrightness = baseBrightness; 
             pixels->setBrightness(musicBrightness);
             musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
@@ -116,23 +125,16 @@ public:
         }
     }
 
-    // ⭐ SỬA LỖI: LUÔN RANDOM MÀU KHI CÓ BEAT
     void triggerBeat() {
         if (!powerState || currentEffect != MUSIC) return;
         
-        // 1. Tạo màu mới (Bắt buộc Random)
         musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);
-
-        // 2. Bùng sáng Max (255)
         musicBrightness = 255; 
         pixels->setBrightness(musicBrightness);
-        
-        // 3. Hiển thị ngay lập tức
         for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
         pixels->show();
     }
 
-    // ⭐ HÀM LOOP ĐỂ CHẠY HIỆU ỨNG (Cần được gọi trong main.cpp)
     void loop() {
         if (!powerState || currentEffect == STATIC) return;
 
@@ -152,12 +154,10 @@ public:
     }
 
 private:
-    // Logic làm dịu đèn (Pulse) sau khi Beat đánh
     void runMusicDecay() {
         bool changed = false;
-        
         if (musicBrightness > baseBrightness) {
-            musicBrightness -= 15; // Giảm độ sáng
+            musicBrightness -= 15; 
             if (musicBrightness < baseBrightness) musicBrightness = baseBrightness;
             changed = true;
         } 
@@ -165,10 +165,8 @@ private:
             musicBrightness = baseBrightness;
             changed = true;
         }
-
         if (changed) {
             pixels->setBrightness(musicBrightness);
-            // Vẽ lại đúng màu đang lưu (musicColor)
             for(int i=0; i<count; i++) pixels->setPixelColor(i, musicColor);
             pixels->show();
         }
@@ -207,4 +205,3 @@ private:
 };
 
 #endif
-
