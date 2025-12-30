@@ -62,7 +62,7 @@ public:
         display.display();
     }
 
-    // ⭐ CẬP NHẬT: Thêm tham số bright
+    // Thêm tham số bright
     void updateStatus(String mode, int r, int g, int b, int bright, bool mqttConnected, String ip) {
         display.clearDisplay();
         
@@ -82,7 +82,7 @@ public:
         displayMode.toUpperCase();
         display.println(displayMode);
 
-        // Body: Brightness (MỚI)
+        // Body: Brightness 
         display.setCursor(0, 30);
         display.print("Bri: ");
         int percent = map(bright, 0, 255, 0, 100); // Đổi 0-255 về 0-100%

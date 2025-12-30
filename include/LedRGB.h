@@ -94,7 +94,7 @@ public:
         
         pixels->setBrightness(globalBrightness);
         for(int i=0; i<count; i++) pixels->setPixelColor(i, pixels->Color(r, g, b));
-        pixels->show(); // <--- Lệnh quan trọng nhất để đèn sáng
+        pixels->show(); 
     }
 
     void setEffect(String effectName, int speedMs, bool isRainbow = false) {

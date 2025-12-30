@@ -28,9 +28,10 @@ int displayR = 0, displayG = 0, displayB = 255, displayBright = 255;
 bool needUpdateScreen = false;
 unsigned long lastScreenDraw = 0;
 unsigned long lastHeartBeat = 0;
+unsigned long lastWifiCheck = 0;
 
 void callback(char* topic, byte* payload, unsigned int length) {
-    // --- GIỮ NGUYÊN CODE DEBUG SERIAL ---
+    // --- CODE DEBUG SERIAL ---
     Serial.print("\n>>> [MQTT] REC: ");
     // nhận chuỗi JSON từ payload
     String message = "";
@@ -112,7 +113,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     
     // Gửi lên topic status
     client.publish(mqtt_topic_status, buffer);
-    // 👆 KẾT THÚC ĐOẠN THÊM 👆
 
     Serial.println(">>> [MQTT] Da gui phan hoi ve Web!");
 
@@ -151,7 +151,6 @@ void setup() {
     Serial.println("[SETUP] Khoi dong OLED...");
     oled.begin(); 
     
-    // ⭐ Delay 2 giây để bạn kịp nhìn thấy chữ "Babyboy"
     Serial.println("[SETUP] Hien thi man hinh chao...");
     delay(2000); 
 
@@ -187,6 +186,22 @@ void loop() {
     if (!client.connected()) reconnect();
     client.loop();
     led.loop(); 
+
+    if (WiFi.status() != WL_CONNECTED) {
+        if (millis() - lastWifiCheck > 5000) { 
+            lastWifiCheck = millis();
+            Serial.println("[WIFI] Mat ket noi! Dang thu ket noi lai...");
+            
+            //  màn hình hiển thị kết nối lại
+            oled.showWifiConnecting(ssid);
+            
+            WiFi.disconnect();
+            WiFi.reconnect();
+        }
+        
+        led.loop(); 
+        return;     
+    }
 
     // Cập nhật OLED (Truyền thêm displayBright)
     if (needUpdateScreen && (millis() - lastScreenDraw > 200)) {
