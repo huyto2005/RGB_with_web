@@ -193,7 +193,7 @@ void loop() {
             Serial.println("[WIFI] Mat ket noi! Dang thu ket noi lai...");
             
             //  màn hình hiển thị kết nối lại
-            oled.showWifiConnecting(ssid);
+            oled.showWifiReconnecting(ssid);
             
             WiFi.disconnect();
             WiFi.reconnect();

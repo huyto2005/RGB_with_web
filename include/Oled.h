@@ -61,7 +61,29 @@ public:
         display.println(ssid);
         display.display();
     }
-
+    
+    void showWifiReconnecting(String ssid) {
+        display.clearDisplay();
+        
+        // Vẽ khung cảnh báo (Hình chữ nhật rỗng bao quanh)
+        display.drawRect(0, 0, 128, 64, SSD1306_WHITE);
+        
+        // Tiêu đề cảnh báo
+        display.setTextSize(1); 
+        display.setCursor(15, 10);
+        display.println(F("! MAT KET NOI !"));
+        
+        // Dòng trạng thái đang thử lại
+        display.setCursor(10, 30);
+        display.println(F("Dang thu lai..."));
+        
+        // Hiển thị tên Wifi
+        display.setCursor(10, 45);
+        display.print(F(">> "));
+        display.println(ssid);
+        
+        display.display();
+    }
     // Thêm tham số bright
     void updateStatus(String mode, int r, int g, int b, int bright, bool mqttConnected, String ip) {
         display.clearDisplay();
