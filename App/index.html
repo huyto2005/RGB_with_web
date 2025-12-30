@@ -165,6 +165,7 @@
         const port = 8884; 
         const topicControl = "esp32/led/control";
         const topicLock = "esp32/system/lock";
+        const topicStatus = "esp32/led/status";
         
         let client = null;
         let sessionID = "sess_" + Math.random().toString(36).substr(2, 9);
@@ -188,21 +189,46 @@
 
         function onConnect() {
             client.subscribe(topicLock);
+            client.subscribe(topicStatus);
+            // gửi ID của phiên đăng nhập và bật cờ retained
             let msg = new Paho.MQTT.Message("LOCKED:" + sessionID);
             msg.destinationName = topicLock;
-            msg.retained = true; 
+            msg.retained = true; // 
             client.send(msg);
+
+            if (message.destinationName === topicStatus) {
+                console.log("📥 ESP32 Feedback:", message.payloadString);
+            
+                // Phân tích dữ liệu phản hồi
+                let data = JSON.parse(message.payloadString);
+            
+                if (data.status === "OK") {
+                // Cập nhật giao diện để đồng bộ (nếu cần)
+                // Ví dụ: Đảm bảo nút nguồn trên web đúng với thực tế
+                let powerSwitch = document.getElementById("powerSwitch");
+                if (data.power === "ON" && !powerSwitch.checked) {
+                    powerSwitch.checked = true;
+                } else if (data.power === "OFF" && powerSwitch.checked) {
+                    powerSwitch.checked = false;
+                }
+                
+                // Cập nhật màu hiển thị text (chỉ để debug hoặc hiển thị trạng thái)
+                document.getElementById("connection-status").innerText = "● Đã kết nối (Last sync: " + new Date().toLocaleTimeString() + ")";
+                }
+            }
         }
 
         function onMessageArrived(message) {
             if (message.destinationName === topicLock) {
                 let payload = message.payloadString;
                 if (payload.startsWith("LOCKED:")) {
+                    // lấy ID mới từ topic gửi về 
                     let ownerID = payload.split(":")[1];
                     if (ownerID === sessionID) {
                         isSecure = true; 
                         showDashboard();
                     } else {
+                        // Nếu ID trên mạng KHÁC ID của mình
                         if (isSecure) {
                             showKickedScreen();
                             client.disconnect(); 
@@ -241,10 +267,11 @@
 
         function sendCommand(extraData = {}) {
             if (!client || !client.isConnected()) return;
+            // đóng gói thành chuỗi JSON 
             let payload = JSON.stringify({ ...state, ...extraData });
-            let message = new Paho.MQTT.Message(payload);
-            message.destinationName = topicControl;
-            client.send(message);
+            let message = new Paho.MQTT.Message(payload); // tạo tin nhắn MQTT
+            message.destinationName = topicControl; // đặt topic
+            client.send(message); // gửi lên broker
         }
 
         function togglePower() {
@@ -297,7 +324,7 @@
         }
 
         function selectColor(r, g, b, btnElement) {
-            state.color = { r: r, g: g, b: b };
+            state.color = { r: r, g: g, b: b }; // cập nhật trang thái màu
             document.getElementById("customColorPicker").value = rgbToHex(r, g, b);
             if (state.mode === "rainbow") state.mode = "static";
             updateUIState();
@@ -305,7 +332,7 @@
                 document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 btnElement.classList.add('active');
             }
-            sendCommand();
+            sendCommand(); // gọi hàm gửi dữ liệu
         }
 
         function handleColorWheel(hex) {

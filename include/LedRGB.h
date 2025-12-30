@@ -31,7 +31,7 @@ public:
     EffectState currentEffect = STATIC;
     bool powerState = true; 
 
-    LedRGB(int pin, int count = 8) : pin(   pin), count(count) {
+    LedRGB(int pin, int count = 8) : pin( pin), count(count) {
         pixels = new Adafruit_NeoPixel(count, pin, NEO_GRB + NEO_KHZ800);
     }
 
@@ -125,7 +125,7 @@ public:
         }
     }
 
-    void triggerBeat() {
+    void triggerBeat() { // hàm nháy rbg theo tín hiệu gửi về
         if (!powerState || currentEffect != MUSIC) return;
         
         musicColor = pixels->ColorHSV(random(0, 65535), 255, 255);

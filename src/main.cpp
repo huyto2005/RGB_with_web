@@ -14,6 +14,7 @@ const int mqtt_port = 8883;
 const char* mqtt_user = "esp32_user";  
 const char* mqtt_pass = "Esp123456";   
 const char* mqtt_topic = "esp32/led/control"; 
+const char* mqtt_topic_status = "esp32/led/status";
 
 WiFiClientSecure espClient; 
 PubSubClient client(espClient);
@@ -31,18 +32,19 @@ unsigned long lastHeartBeat = 0;
 void callback(char* topic, byte* payload, unsigned int length) {
     // --- GIỮ NGUYÊN CODE DEBUG SERIAL ---
     Serial.print("\n>>> [MQTT] REC: ");
+    // nhận chuỗi JSON từ payload
     String message = "";
     for (int i = 0; i < length; i++) message += (char)payload[i];
     Serial.println(message);
-    
+    // giải mã json 
     DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, message);
+    DeserializationError error = deserializeJson(doc, message); // hàm giải mã Json
     if (error) {
         Serial.print("[ERROR] JSON Malformed: ");
         Serial.println(error.c_str());
         return;
     }
-
+    // trích dữ liệu ra biến 
     String newMode = doc["mode"] | currentMode; 
     int r = doc["color"]["r"];
     int g = doc["color"]["g"];
@@ -58,14 +60,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     needUpdateScreen = true;
 
-    // --- LOGIC ĐIỀU KHIỂN LED ---
+    // ---------- LOGIC ĐIỀU KHIỂN LED --------
     if (doc.containsKey("power")) {
         String power = doc["power"];
-        Serial.print("[ACTION] Set Power: "); Serial.println(power);
+        Serial.print("[ACTION] Set Power: "); 
+        Serial.println(power);
         led.setPower(power != "OFF");
     }
 
     led.updateColorParams(r, g, b);
+    // thiết lập độ sáng led
     if (bright != -1) {
         led.setBrightness(displayBright); 
     }
@@ -90,7 +94,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (currentMode == "music" && doc["beat"] == true) {
         led.triggerBeat();
     }
+    ///------gui status ve web de dong bo giao dien----
+    StaticJsonDocument<200> responseDoc;
+    responseDoc["status"] = "OK";
+    responseDoc["power"] = led.powerState ? "ON" : "OFF";
+    responseDoc["mode"] = currentMode;
+    responseDoc["brightness"] = displayBright;
     
+    // Gửi màu hiện tại về để Web đồng bộ
+    JsonObject colorObj = responseDoc.createNestedObject("color");
+    colorObj["r"] = displayR;
+    colorObj["g"] = displayG;
+    colorObj["b"] = displayB;
+
+    char buffer[200];
+    serializeJson(responseDoc, buffer);
+    
+    // Gửi lên topic status
+    client.publish(mqtt_topic_status, buffer);
+    // 👆 KẾT THÚC ĐOẠN THÊM 👆
+
+    Serial.println(">>> [MQTT] Da gui phan hoi ve Web!");
+
     Serial.println(">>> [MQTT] XU LY XONG.");
 }
 
