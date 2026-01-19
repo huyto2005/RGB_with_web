@@ -70,6 +70,12 @@ Mở file index.html (hoặc UI.html), cập nhật địa chỉ MQTT Broker t�
     const host = "URL_HIVEMQ_CLUSTER"; // Phải khớp với trong main.cpp
 Chạy file HTML trực tiếp trên trình duyệt hoặc Deploy lên Netlify để điều khiển qua Internet.
 
+https://rgbcontrolonweb.netlify.app/
+
+  Username: esp32_user
+  
+  Password: Esp123456
+
 **5.Chức năng chính**
 
 Dashboard: Điều khiển Bật/Tắt, chỉnh màu sắc, độ sáng (0-100%).
