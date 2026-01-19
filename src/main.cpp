@@ -7,8 +7,8 @@
 #include "Oled.h" 
 
 // --- CẤU HÌNH ---
-const char* ssid = "Huy tồ";           
-const char* password = "123456789";    
+const char* ssid = "CEEC_Tenda";       // sửa thông tin WiFi tại đây    
+const char* password = "1denmuoi1";    //
 const char* mqtt_server = "4137969922e04db986eb36cd1271ac95.s1.eu.hivemq.cloud";
 const int mqtt_port = 8883;            
 const char* mqtt_user = "esp32_user";  

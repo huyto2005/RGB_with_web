@@ -58,7 +58,7 @@
    const char* mqtt_user = "user_mqtt";
    const char* mqtt_pass = "pass_mqtt";
 
-4. Kết nối ESP32 với máy tính qua cáp USB.
+4. Kết nối ESP32 với máy tính qua cáp USB - TypeC.
 
 5. Bấm nút mũi tên (➡️) Upload trên thanh công cụ PlatformIO để nạp code.
 
